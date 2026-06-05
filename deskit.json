@@ -1,0 +1,28 @@
+{
+  "$schema": "./schema/deskit-manifest.schema.json",
+  "id": "com.example.hello",
+  "name": "hello",
+  "displayName": { "en": "Hello", "zh-CN": "你好" },
+  "description": {
+    "en": "A starter DesKit plugin that greets you.",
+    "zh-CN": "一个问候你的 DesKit 入门插件。"
+  },
+  "version": "0.3.0",
+  "author": "Your Name",
+  "icon": "lucide:hand",
+  "engines": { "deskit": "^0.2.0" },
+  "main": "dist/index.js",
+  "contributes": {
+    "commands": [
+      {
+        "id": "hello.greet",
+        "title": { "en": "Hello", "zh-CN": "你好" },
+        "subtitle": { "en": "Greet someone", "zh-CN": "向某人问好" },
+        "keywords": ["hello", "greet", "你好"],
+        "icon": "lucide:hand",
+        "mode": "view"
+      }
+    ]
+  },
+  "permissions": []
+}
