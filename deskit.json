@@ -1,28 +1,51 @@
 {
   "$schema": "./schema/deskit-manifest.schema.json",
-  "id": "com.example.hello",
-  "name": "hello",
-  "displayName": { "en": "Hello", "zh-CN": "你好" },
-  "description": {
-    "en": "A starter DesKit plugin that greets you.",
-    "zh-CN": "一个问候你的 DesKit 入门插件。"
+  "id": "com.deskit.random-numbers-generator",
+  "name": "random-numbers-generator",
+  "displayName": {
+    "en": "Random Numbers Generator",
+    "zh-CN": "随机数生成器"
   },
-  "version": "0.3.0",
+  "description": {
+    "en": "Generate random integers by range and count.",
+    "zh-CN": "按范围和数量生成随机整数。"
+  },
+  "version": "0.1.0",
   "author": "Your Name",
-  "icon": "lucide:hand",
-  "engines": { "deskit": "^0.2.0" },
+  "icon": "lucide:dices",
+  "engines": {
+    "deskit": "^0.2.0"
+  },
   "main": "dist/index.js",
   "contributes": {
     "commands": [
       {
-        "id": "hello.greet",
-        "title": { "en": "Hello", "zh-CN": "你好" },
-        "subtitle": { "en": "Greet someone", "zh-CN": "向某人问好" },
-        "keywords": ["hello", "greet", "你好"],
-        "icon": "lucide:hand",
+        "id": "random-numbers-generator.generate",
+        "title": {
+          "en": "Random Numbers",
+          "zh-CN": "随机数"
+        },
+        "subtitle": {
+          "en": "Generate integers: min max [count] [--unique]",
+          "zh-CN": "生成整数：min max [count] [--unique]"
+        },
+        "keywords": [
+          "random",
+          "number",
+          "numbers",
+          "generator",
+          "integer",
+          "rng",
+          "unique",
+          "随机",
+          "随机数",
+          "整数",
+          "去重"
+        ],
+        "icon": "lucide:dices",
         "mode": "view"
       }
     ]
   },
-  "permissions": []
+  "permissions": ["clipboard:write"]
 }

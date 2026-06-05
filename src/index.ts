@@ -1,43 +1,235 @@
-import type { ListView, PluginModule } from "@deskit/plugin-sdk"
+import type { ListItem, ListView, PluginContext, PluginModule } from "@deskit/plugin-sdk"
+import { formatOutput, generateNumbers, parseQuery } from "./random"
 
-// A minimal DesKit plugin. Replace the command id, the manifest in
-// deskit.json, and this logic with your own. The host loads the built
-// CJS bundle and reads `module.exports.commands`.
+const COMMAND_ID = "random-numbers-generator.generate"
+const MAX_COUNT = 1000
+const PREVIEW_COUNT = 20
+
+let cached: {
+  key: string
+  values: number[]
+  copiedText: string | null
+} | null = null
+
 const plugin: PluginModule = {
   commands: {
-    // The command id MUST match a `contributes.commands[].id` in deskit.json.
-    "hello.greet": {
-      // `run` is required — called when the command is activated. The
-      // trailing launcher token is passed as `initialQuery`.
+    [COMMAND_ID]: {
       run({ initialQuery }, ctx) {
-        return makeView(initialQuery ?? "", ctx.locale)
+        return makeView(initialQuery ?? "", ctx, true)
       },
-      // Optional — called as the user types in the command's search box.
       onSearchChange(text, ctx) {
-        return makeView(text, ctx.locale)
+        return makeView(text, ctx, false)
       },
     },
   },
 }
 
-function makeView(text: string, _locale: string): ListView {
-  const trimmed = text.trim()
-  const greeting = trimmed ? `Hello, ${trimmed}!` : "Hello, DesKit!"
+function makeView(rawInput: string, ctx: PluginContext, forceGenerate: boolean): ListView {
+  const locale = normalizeLocale(ctx.locale)
+  const parsed = parseQuery(rawInput)
+
   return {
     type: "list",
-    searchPlaceholder: "Type a name…",
-    emptyText: { en: "Type something", "zh-CN": "输入点什么" },
-    items: [
+    searchPlaceholder: t(
+      locale,
+      "Try: 1 100 5 --unique",
+      "试试：1 100 5 --unique"
+    ),
+    emptyText: t(locale, "Type min max [count] [--unique]", "输入 min max [count] [--unique]"),
+    sections: [
       {
-        id: "greeting",
-        title: greeting,
-        subtitle: { en: "Press Enter to copy", "zh-CN": "回车复制" },
-        actions: [{ type: "copy", value: greeting }],
+        title: t(locale, "Result", "结果"),
+        items: resultItems(parsed, ctx, locale, forceGenerate),
+      },
+      {
+        title: t(locale, "Examples", "示例"),
+        items: exampleItems(locale),
       },
     ],
   }
 }
 
-// The host loads plugins as CommonJS. Compile to CJS and export the module
-// object — `export = plugin` (TS) becomes `module.exports = plugin` (JS).
+function resultItems(
+  parsed: ParsedQuery,
+  ctx: PluginContext,
+  locale: Locale,
+  forceGenerate: boolean
+): ListItem[] {
+  if (parsed.kind === "empty") {
+    return [
+      {
+        id: "usage",
+        title: t(locale, "Type min max [count] [--unique]", "输入 min max [count] [--unique]"),
+        subtitle: t(
+          locale,
+          "Example: 1 100 5 --unique",
+          "示例：1 100 5 --unique"
+        ),
+        icon: "lucide:dices",
+        actions: [],
+      },
+    ]
+  }
+
+  if (parsed.kind === "error") {
+    return [
+      {
+        id: "error",
+        title: t(locale, "Invalid input", "输入无效"),
+        subtitle: parsed.message,
+        icon: "lucide:alert-circle",
+        actions: [],
+      },
+    ]
+  }
+
+  const key = generationKey(parsed)
+
+  if (forceGenerate || cached?.key !== key) {
+    cached = {
+      key,
+      values: generateNumbers(parsed),
+      copiedText: null,
+    }
+  }
+
+  const values = cached.values
+  const output = values.join("\n")
+
+  if (cached.copiedText !== output) {
+    cached.copiedText = output
+    void ctx.clipboard.writeText(output).catch((error) => {
+      ctx.log("Failed to write random numbers to clipboard", error)
+    })
+  }
+
+  const preview = values.slice(0, PREVIEW_COUNT).join(", ")
+  const title =
+    parsed.count === 1
+      ? String(values[0])
+      : t(
+          locale,
+          `Generated ${parsed.count} random integer${parsed.count > 1 ? "s" : ""}`,
+          `已生成 ${parsed.count} 个随机整数`
+        )
+
+  const subtitleParts = [
+    t(locale, `Range: ${parsed.min} to ${parsed.max}`, `范围：${parsed.min} 到 ${parsed.max}`),
+    `count=${parsed.count}`,
+    parsed.unique ? "--unique" : null,
+    t(locale, "Copied to clipboard", "已复制到剪贴板"),
+  ].filter(Boolean)
+
+  return [
+    {
+      id: "result",
+      title,
+      subtitle:
+        parsed.count === 1
+          ? subtitleParts.join(" · ")
+          : `${subtitleParts.join(" · ")} · ${t(locale, "Preview", "预览")}: ${preview}${
+              values.length > PREVIEW_COUNT ? " ..." : ""
+            }`,
+      icon: parsed.unique ? "lucide:shuffle" : "lucide:dices",
+      actions: [
+        {
+          type: "copy",
+          label: t(locale, "Copy again", "再次复制"),
+          value: output,
+        },
+      ],
+    },
+  ]
+}
+
+function exampleItems(locale: Locale): ListItem[] {
+  const examples = ["1 100", "1 100 5", "1 100 5 --unique", "--unique -10 10 8"]
+
+  return examples.map((example) => ({
+    id: `example:${example}`,
+    title: example,
+    subtitle: t(locale, "Copy this example", "复制这个示例"),
+    icon: "lucide:copy",
+    actions: [
+      {
+        type: "copy",
+        label: t(locale, "Copy", "复制"),
+        value: example,
+      },
+    ],
+  }))
+}
+
+function parseInteger(value: string): number | null {
+  if (!/^[+-]?\d+$/.test(value)) return null
+
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed)) return null
+
+  return parsed
+}
+
+
+function generateUniqueNumbers(min: number, max: number, count: number): number[] {
+  const rangeSize = max - min + 1
+
+  if (rangeSize <= 50_000) {
+    const pool = Array.from({ length: rangeSize }, (_, index) => min + index)
+
+    for (let index = 0; index < count; index += 1) {
+      const swapIndex = index + randomInteger(0, pool.length - index - 1)
+      const temp = pool[index]
+      pool[index] = pool[swapIndex]
+      pool[swapIndex] = temp
+    }
+
+    return pool.slice(0, count)
+  }
+
+  const values = new Set<number>()
+
+  while (values.size < count) {
+    values.add(randomInteger(min, max))
+  }
+
+  return [...values]
+}
+
+function randomInteger(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function generationKey(query: SuccessfulQuery): string {
+  return `${query.min}:${query.max}:${query.count}:${query.unique}`
+}
+
+function normalizeLocale(locale: string): Locale {
+  return locale.toLowerCase().startsWith("zh") ? "zh-CN" : "en"
+}
+
+function t(locale: Locale, en: string, zhCN: string): string {
+  return locale === "zh-CN" ? zhCN : en
+}
+
+type Locale = "en" | "zh-CN"
+
+type ParsedQuery = EmptyQuery | ErrorQuery | SuccessfulQuery
+
+interface EmptyQuery {
+  kind: "empty"
+}
+
+interface ErrorQuery {
+  kind: "error"
+  message: string
+}
+
+interface SuccessfulQuery {
+  kind: "success"
+  min: number
+  max: number
+  count: number
+  unique: boolean
+}
+
 export = plugin
