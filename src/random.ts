@@ -41,7 +41,7 @@ export function parseQuery(rawInput: string): ParsedQuery {
   }
 
   if (numberTokens.length < 2) {
-    return { kind: "error", message: "Expected input: min max [count] [--unique]" }
+    return { kind: "error", message: "Expected input: min max [count] [-u/--unique]" }
   }
 
   if (numberTokens.length > 3) {
@@ -77,7 +77,7 @@ export function parseQuery(rawInput: string): ParsedQuery {
   if (unique && count > rangeSize) {
     return {
       kind: "error",
-      message: `--unique requires at least ${count} integers in range, but only ${rangeSize} available`,
+      message: `-u/--unique requires at least ${count} integers in range, but only ${rangeSize} available`,
     }
   }
 

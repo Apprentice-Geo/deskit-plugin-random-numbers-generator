@@ -2,8 +2,7 @@ import type { ListItem, ListView, PluginContext, PluginModule } from "@deskit/pl
 import { formatOutput, generateNumbers, parseQuery } from "./random"
 
 const COMMAND_ID = "random-numbers-generator.generate"
-const MAX_COUNT = 1000
-const PREVIEW_COUNT = 20
+const PREVIEW_COUNT = 16
 
 let cached: {
   key: string
@@ -35,7 +34,7 @@ function makeView(rawInput: string, ctx: PluginContext, forceGenerate: boolean):
       "Try: 1 100 5 --unique",
       "试试：1 100 5 --unique"
     ),
-    emptyText: t(locale, "Type min max [count] [--unique]", "输入 min max [count] [--unique]"),
+    emptyText: t(locale, "Type min max [count] [-u/--unique]", "输入 min max [count] [-u/--unique]"),
     sections: [
       {
         title: t(locale, "Result", "结果"),
@@ -59,11 +58,11 @@ function resultItems(
     return [
       {
         id: "usage",
-        title: t(locale, "Type min max [count] [--unique]", "输入 min max [count] [--unique]"),
+        title: t(locale, "Type min max [count] [-u/--unique]", "输入 min max [count] [-u/--unique]"),
         subtitle: t(
           locale,
-          "Example: 1 100 5 --unique",
-          "示例：1 100 5 --unique"
+          "Example: 1 1024 5 -u",
+          "示例：1 1024 5 -u"
         ),
         icon: "lucide:dices",
         actions: [],
@@ -94,7 +93,7 @@ function resultItems(
   }
 
   const values = cached.values
-  const output = values.join("\n")
+  const output = formatOutput(values)
 
   if (cached.copiedText !== output) {
     cached.copiedText = output
@@ -143,7 +142,7 @@ function resultItems(
 }
 
 function exampleItems(locale: Locale): ListItem[] {
-  const examples = ["1 100", "1 100 5", "1 100 5 --unique", "--unique -10 10 8"]
+  const examples = ["1 5", "1 1024 10", "1 1024 10 -u", "1 1024 10 --unique", "--unique -1024 1024 10", "-u -1024 1024 10"]
 
   return examples.map((example) => ({
     id: `example:${example}`,

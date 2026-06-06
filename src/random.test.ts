@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatOutput, generateNumbers, parseQuery } from "./random"
+import { formatOutput, generateNumbers, parseQuery, MAX_COUNT } from "./random"
 
 describe("parseQuery", () => {
   it("returns empty state for empty input", () => {
@@ -85,11 +85,11 @@ describe("parseQuery", () => {
   })
 
   it("rejects count over limit", () => {
-    const parsed = parseQuery("1 100 1001")
+    const parsed = parseQuery(`1 100 ${MAX_COUNT + 1}`)
 
     expect(parsed.kind).toBe("error")
     if (parsed.kind === "error") {
-      expect(parsed.message).toContain("1000")
+      expect(parsed.message).toContain(MAX_COUNT.toString())
     }
   })
 

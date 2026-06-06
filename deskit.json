@@ -10,8 +10,8 @@
     "en": "Generate random integers by range and count.",
     "zh-CN": "按范围和数量生成随机整数。"
   },
-  "version": "0.1.0",
-  "author": "Your Name",
+  "version": "0.1.1",
+  "author": "DesKit",
   "icon": "lucide:dices",
   "engines": {
     "deskit": "^0.2.0"
