@@ -6,9 +6,23 @@ export interface EmptyQuery {
   kind: "empty"
 }
 
+export type ErrorCode =
+  | "expected_input"
+  | "too_many_numeric_args"
+  | "unsupported_option"
+  | "min_not_integer"
+  | "max_not_integer"
+  | "count_not_integer"
+  | "min_greater_than_max"
+  | "count_not_positive"
+  | "count_over_limit"
+  | "range_too_large"
+  | "unique_range_too_small"
+
 export interface ErrorQuery {
   kind: "error"
-  message: string
+  code: ErrorCode
+  params?: Record<string, string | number>
 }
 
 export interface SuccessfulQuery {
@@ -33,52 +47,52 @@ export function parseQuery(rawInput: string): ParsedQuery {
       continue
     }
 
-    if (token.startsWith("--")) {
-      return { kind: "error", message: `Unsupported option: ${token}` }
+    if (token.startsWith("-") && !/^-?\d+$/.test(token)) {
+      return error("unsupported_option", { option: token })
     }
 
     numberTokens.push(token)
   }
 
   if (numberTokens.length < 2) {
-    return { kind: "error", message: "Expected input: min max [count] [-u/--unique]" }
+    return error("expected_input")
   }
 
   if (numberTokens.length > 3) {
-    return { kind: "error", message: "Too many numeric arguments. Expected: min max [count]" }
+    return error("too_many_numeric_args")
   }
 
   const min = parseInteger(numberTokens[0])
   const max = parseInteger(numberTokens[1])
   const count = numberTokens[2] === undefined ? 1 : parseInteger(numberTokens[2])
 
-  if (min === null) return { kind: "error", message: "min must be an integer" }
-  if (max === null) return { kind: "error", message: "max must be an integer" }
-  if (count === null) return { kind: "error", message: "count must be an integer" }
+  if (min === null) return error("min_not_integer")
+  if (max === null) return error("max_not_integer")
+  if (count === null) return error("count_not_integer")
 
   if (min > max) {
-    return { kind: "error", message: "min must be less than or equal to max" }
+    return error("min_greater_than_max")
   }
 
   if (count <= 0) {
-    return { kind: "error", message: "count must be greater than 0" }
+    return error("count_not_positive")
   }
 
   if (count > MAX_COUNT) {
-    return { kind: "error", message: `count must be less than or equal to ${MAX_COUNT}` }
+    return error("count_over_limit", { maxCount: MAX_COUNT })
   }
 
   const rangeSize = max - min + 1
 
   if (!Number.isSafeInteger(rangeSize) || rangeSize <= 0) {
-    return { kind: "error", message: "range is too large" }
+    return error("range_too_large")
   }
 
   if (unique && count > rangeSize) {
-    return {
-      kind: "error",
-      message: `-u/--unique requires at least ${count} integers in range, but only ${rangeSize} available`,
-    }
+    return error("unique_range_too_small", {
+      count,
+      rangeSize,
+    })
   }
 
   return { kind: "success", min, max, count, unique }
@@ -130,4 +144,10 @@ function generateUniqueNumbers(min: number, max: number, count: number): number[
 
 function randomInteger(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function error(code: ErrorCode, params?: ErrorQuery["params"]): ErrorQuery {
+  return params === undefined
+    ? { kind: "error", code }
+    : { kind: "error", code, params }
 }

@@ -1,5 +1,6 @@
 import type { ListItem, ListView, PluginContext, PluginModule } from "@deskit/plugin-sdk"
 import { formatOutput, generateNumbers, parseQuery } from "./random"
+import type { ErrorQuery, ParsedQuery, SuccessfulQuery } from "./random"
 
 const COMMAND_ID = "random-numbers-generator.generate"
 const PREVIEW_COUNT = 16
@@ -75,7 +76,7 @@ function resultItems(
       {
         id: "error",
         title: t(locale, "Invalid input", "输入无效"),
-        subtitle: parsed.message,
+        subtitle: formatErrorMessage(parsed, locale),
         icon: "lucide:alert-circle",
         actions: [],
       },
@@ -210,25 +211,53 @@ function t(locale: Locale, en: string, zhCN: string): string {
   return locale === "zh-CN" ? zhCN : en
 }
 
+function formatErrorMessage(error: ErrorQuery, locale: Locale): string {
+  const p = error.params ?? {}
+
+  switch (error.code) {
+    case "expected_input":
+      return t(locale, "Expected input: min max [count] [-u/--unique]", "请输入：min max [count] [-u/--unique]")
+
+    case "too_many_numeric_args":
+      return t(locale, "Too many numeric arguments. Expected: min max [count]", "数字参数过多。格式应为：min max [count]")
+
+    case "unsupported_option":
+      return t(locale, `Unsupported option: ${p.option}`, `不支持的参数：${p.option}`)
+
+    case "min_not_integer":
+      return t(locale, "min must be an integer", "min 必须是整数")
+
+    case "max_not_integer":
+      return t(locale, "max must be an integer", "max 必须是整数")
+
+    case "count_not_integer":
+      return t(locale, "count must be an integer", "count 必须是整数")
+
+    case "min_greater_than_max":
+      return t(locale, "min must be less than or equal to max", "min 必须小于或等于 max")
+
+    case "count_not_positive":
+      return t(locale, "count must be greater than 0", "count 必须大于 0")
+
+    case "count_over_limit":
+      return t(
+        locale,
+        `count must be less than or equal to ${p.maxCount}`,
+        `count 必须小于或等于 ${p.maxCount}`
+      )
+
+    case "range_too_large":
+      return t(locale, "range is too large", "随机数范围过大")
+
+    case "unique_range_too_small":
+      return t(
+        locale,
+        `-u/--unique requires at least ${p.count} integers in range, but only ${p.rangeSize} available`,
+        `-u/--unique 需要范围内至少有 ${p.count} 个整数，但当前只有 ${p.rangeSize} 个`
+      )
+  }
+}
+
 type Locale = "en" | "zh-CN"
-
-type ParsedQuery = EmptyQuery | ErrorQuery | SuccessfulQuery
-
-interface EmptyQuery {
-  kind: "empty"
-}
-
-interface ErrorQuery {
-  kind: "error"
-  message: string
-}
-
-interface SuccessfulQuery {
-  kind: "success"
-  min: number
-  max: number
-  count: number
-  unique: boolean
-}
 
 export = plugin

@@ -58,75 +58,96 @@ describe("parseQuery", () => {
   })
 
   it("rejects min greater than max", () => {
-    const parsed = parseQuery("100 1")
-
-    expect(parsed.kind).toBe("error")
-    if (parsed.kind === "error") {
-      expect(parsed.message).toContain("min")
-    }
+    expect(parseQuery("100 1")).toStrictEqual({
+      kind: "error",
+      code: "min_greater_than_max",
+    })
   })
 
   it("rejects zero count", () => {
-    const parsed = parseQuery("1 100 0")
-
-    expect(parsed.kind).toBe("error")
-    if (parsed.kind === "error") {
-      expect(parsed.message).toContain("greater than 0")
-    }
+    expect(parseQuery("1 100 0")).toStrictEqual({
+      kind: "error",
+      code: "count_not_positive",
+    })
   })
 
   it("rejects negative count", () => {
-    const parsed = parseQuery("1 100 -1")
-
-    expect(parsed.kind).toBe("error")
-    if (parsed.kind === "error") {
-      expect(parsed.message).toContain("greater than 0")
-    }
+    expect(parseQuery("1 100 -1")).toStrictEqual({
+      kind: "error",
+      code: "count_not_positive",
+    })
   })
 
   it("rejects count over limit", () => {
-    const parsed = parseQuery(`1 100 ${MAX_COUNT + 1}`)
-
-    expect(parsed.kind).toBe("error")
-    if (parsed.kind === "error") {
-      expect(parsed.message).toContain(MAX_COUNT.toString())
-    }
+    expect(parseQuery(`1 100 ${MAX_COUNT + 1}`)).toStrictEqual({
+      kind: "error",
+      code: "count_over_limit",
+      params: { maxCount: MAX_COUNT },
+    })
   })
 
-  it("rejects decimal numbers", () => {
-    expect(parseQuery("1.5 10").kind).toBe("error")
-    expect(parseQuery("1 10 2.5").kind).toBe("error")
+  it("identifies each non-integer argument", () => {
+    expect(parseQuery("1.5 10")).toStrictEqual({
+      kind: "error",
+      code: "min_not_integer",
+    })
+    expect(parseQuery("1 10.5")).toStrictEqual({
+      kind: "error",
+      code: "max_not_integer",
+    })
+    expect(parseQuery("1 10 2.5")).toStrictEqual({
+      kind: "error",
+      code: "count_not_integer",
+    })
   })
 
   it("rejects non-numeric arguments", () => {
-    expect(parseQuery("1 a 5").kind).toBe("error")
+    expect(parseQuery("1 a 5")).toStrictEqual({
+      kind: "error",
+      code: "max_not_integer",
+    })
   })
 
   it("rejects unsupported options", () => {
-    const parsed = parseQuery("1 100 5 --foo")
-
-    expect(parsed.kind).toBe("error")
-    if (parsed.kind === "error") {
-      expect(parsed.message).toContain("--foo")
-    }
+    expect(parseQuery("1 100 5 --foo")).toStrictEqual({
+      kind: "error",
+      code: "unsupported_option",
+      params: { option: "--foo" },
+    })
   })
 
   it("rejects too many numeric arguments", () => {
-    const parsed = parseQuery("1 100 5 6")
-
-    expect(parsed.kind).toBe("error")
-    if (parsed.kind === "error") {
-      expect(parsed.message).toContain("Too many")
-    }
+    expect(parseQuery("1 100 5 6")).toStrictEqual({
+      kind: "error",
+      code: "too_many_numeric_args",
+    })
   })
 
   it("rejects unique count greater than range size", () => {
-    const parsed = parseQuery("1 3 5 --unique")
+    expect(parseQuery("1 3 5 --unique")).toStrictEqual({
+      kind: "error",
+      code: "unique_range_too_small",
+      params: {
+        count: 5,
+        rangeSize: 3,
+      },
+    })
+  })
 
-    expect(parsed.kind).toBe("error")
-    if (parsed.kind === "error") {
-      expect(parsed.message).toContain("--unique")
-    }
+  it("rejects missing numeric arguments", () => {
+    expect(parseQuery("1")).toStrictEqual({
+      kind: "error",
+      code: "expected_input",
+    })
+  })
+
+  it("rejects ranges larger than safe integer arithmetic", () => {
+    expect(
+      parseQuery(`${Number.MIN_SAFE_INTEGER} ${Number.MAX_SAFE_INTEGER}`)
+    ).toStrictEqual({
+      kind: "error",
+      code: "range_too_large",
+    })
   })
 
   it("accepts same min and max when count is 1", () => {
@@ -226,12 +247,11 @@ it("rejects malformed signed integers", () => {
 })
 
 it("rejects unsupported long options", () => {
-  const parsed = parseQuery("1 100 5 --foo")
-
-  expect(parsed.kind).toBe("error")
-  if (parsed.kind === "error") {
-    expect(parsed.message).toContain("--foo")
-  }
+  expect(parseQuery("1 100 5 --foo")).toStrictEqual({
+    kind: "error",
+    code: "unsupported_option",
+    params: { option: "--foo" },
+  })
 })
 
 it("rejects malformed long options", () => {
